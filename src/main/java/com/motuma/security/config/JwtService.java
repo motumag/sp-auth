@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -13,8 +14,11 @@ import java.util.*;
 import java.util.function.Function;
 
 @Service
+@RequiredArgsConstructor
 public class JwtService {
-    private static final String SECRET_KEY = "EhXa6VnuQowDMMIzprnWuGSaBMMcQc6v";
+    private static final String SECRET_KEY="404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
+    private static final long JWT_EXPIRATION=86400000;
+    private static final long REFRESH_TOKEN_EXPIRE=604800000;
 
     //    TODO: This is to get the username from the token and use in JwtAuthenticationFilter class to check if the user is in db
     public String extractUserEmailOrPhoneFromJwt(String tokenFromJwtAuthFilter) {
@@ -42,22 +46,37 @@ public class JwtService {
         byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
         return Keys.hmacShaKeyFor(keyBytes);
     }
-
-//    TODO: Now generate a token for login and other stuffs you need
-    public String generateToken(Map<String, Objects> extraClaimsCreated, UserDetails userDetails){
-        return Jwts
-                .builder()
-                .setClaims(extraClaimsCreated)
-                .setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis()+1000*60*24))
-                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
-                .compact();
-    }
 //    TODO: To generate token only with user details we can use like the bellow block of code
     public String generateToken(UserDetails userDetails){
         return generateToken(new HashMap<>(),userDetails);
     }
+    public String generateToken(
+            Map<String, Object> extraClaims,
+            UserDetails userDetails
+    ) {
+        return buildToken(extraClaims, userDetails, JWT_EXPIRATION);
+    }
+    public String generateRefreshToken(
+            UserDetails userDetails
+    ) {
+        return buildToken(new HashMap<>(), userDetails, REFRESH_TOKEN_EXPIRE);
+    }
+    private String buildToken(
+            Map<String, Object> extraClaims,
+            UserDetails userDetails,
+            long expiration
+    ) {
+        return Jwts
+                .builder()
+                .setClaims(extraClaims)
+                .setSubject(userDetails.getUsername())
+//                .setId(userDetails.getAuthorities().toString())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
 //    TODO: Check token validation[For this we need method isTokenExpired,extractExpiration to implement ]
     public boolean isTokenValid(String tokenFromJwtAuthFilter, UserDetails userDetails){
         final String userNameFromToken= extractUserEmailOrPhoneFromJwt(tokenFromJwtAuthFilter);
